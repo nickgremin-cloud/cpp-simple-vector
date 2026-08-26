@@ -114,20 +114,14 @@ public:
             return;
         }
         if (new_size <= capacity_) {
-            for (size_t i = size_; i < new_size; ++i) {
-                items_[i] = Type{};
-            }
+            std::fill(items_.Get() + size_, items_.Get() + new_size, Type{});
             size_ = new_size;
             return;
         }
         size_t new_capacity = std::max(new_size, capacity_ * 2);
         ArrayPtr<Type> new_items(new_capacity);
-        for (size_t i = 0; i < size_; ++i) {
-            new_items[i] = std::move(items_[i]);
-        }
-        for (size_t i = size_; i < new_size; ++i) {
-            new_items[i] = Type{};
-        }
+        std::move(items_.Get(), items_.Get() + size_, new_items.Get());
+        std::fill(new_items.Get() + size_, new_items.Get() + new_size, Type{});
         items_.swap(new_items);
         size_ = new_size;
         capacity_ = new_capacity;
@@ -155,23 +149,18 @@ public:
     }
 
     Iterator Insert(ConstIterator pos, const Type& value) {
+        assert(pos >= cbegin() && pos <= cend());
         size_t index = static_cast<size_t>(pos - cbegin());
         if (size_ == capacity_) {
             size_t new_capacity = capacity_ == 0 ? 1 : capacity_ * 2;
             ArrayPtr<Type> new_items(new_capacity);
-            for (size_t i = 0; i < index; ++i) {
-                new_items[i] = std::move(items_[i]);
-            }
+            std::move(items_.Get(), items_.Get() + index, new_items.Get());
             new_items[index] = value;
-            for (size_t i = index; i < size_; ++i) {
-                new_items[i + 1] = std::move(items_[i]);
-            }
+            std::move(items_.Get() + index, items_.Get() + size_, new_items.Get() + index + 1);
             items_.swap(new_items);
             capacity_ = new_capacity;
         } else {
-            for (size_t i = size_; i > index; --i) {
-                items_[i] = std::move(items_[i - 1]);
-            }
+            std::move_backward(items_.Get() + index, items_.Get() + size_, items_.Get() + size_ + 1);
             items_[index] = value;
         }
         ++size_;
@@ -179,23 +168,18 @@ public:
     }
 
     Iterator Insert(ConstIterator pos, Type&& value) {
+        assert(pos >= cbegin() && pos <= cend());
         size_t index = static_cast<size_t>(pos - cbegin());
         if (size_ == capacity_) {
             size_t new_capacity = capacity_ == 0 ? 1 : capacity_ * 2;
             ArrayPtr<Type> new_items(new_capacity);
-            for (size_t i = 0; i < index; ++i) {
-                new_items[i] = std::move(items_[i]);
-            }
+            std::move(items_.Get(), items_.Get() + index, new_items.Get());
             new_items[index] = std::move(value);
-            for (size_t i = index; i < size_; ++i) {
-                new_items[i + 1] = std::move(items_[i]);
-            }
+            std::move(items_.Get() + index, items_.Get() + size_, new_items.Get() + index + 1);
             items_.swap(new_items);
             capacity_ = new_capacity;
         } else {
-            for (size_t i = size_; i > index; --i) {
-                items_[i] = std::move(items_[i - 1]);
-            }
+            std::move_backward(items_.Get() + index, items_.Get() + size_, items_.Get() + size_ + 1);
             items_[index] = std::move(value);
         }
         ++size_;
@@ -203,10 +187,9 @@ public:
     }
 
     Iterator Erase(ConstIterator pos) {
+        assert(pos >= cbegin() && pos < cend());
         size_t index = static_cast<size_t>(pos - cbegin());
-        for (size_t i = index; i + 1 < size_; ++i) {
-            items_[i] = std::move(items_[i + 1]);
-        }
+        std::move(items_.Get() + index + 1, items_.Get() + size_, items_.Get() + index);
         --size_;
         return begin() + index;
     }
@@ -216,9 +199,7 @@ public:
             return;
         }
         ArrayPtr<Type> new_items(new_capacity);
-        for (size_t i = 0; i < size_; ++i) {
-            new_items[i] = std::move(items_[i]);
-        }
+        std::move(items_.Get(), items_.Get() + size_, new_items.Get());
         items_.swap(new_items);
         capacity_ = new_capacity;
     }
